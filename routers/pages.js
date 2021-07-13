@@ -2,6 +2,9 @@ let express = require('express');
 let session = require('express-session');
 let route = express.Router();
 let db = require('../database/config');
+var { PipelinesClient, withKeyCredentials, RecordsClient, CollectionsClient } = require('@sajari/sdk-node');
+const { PipelineType, QueryResultTokenClick } = require('@sajari/sdk-node/build/src/generated/api');
+const { QueryCollectionRequestTrackingType } = require('@sajari/sdk-node/build/src/generated/model/queryCollectionRequestTrackingType');
 
 route.get('/', function(req, res) {
   res.render('home', {title: 'Home'});
@@ -159,6 +162,47 @@ route.get('/about', function(req, res) {
 
 route.get('/contact', function(req, res) {
   res.render('page', {title: 'Contact'});
+});
+
+route.get('/search', async function (req, res) {
+  const q = req.query.q;
+  if (!q || !q.length) {
+    return res.redirect('/');
+  }
+
+  const keyCredentials = withKeyCredentials(process.env.SAJARI_KEY_ID, process.env.SAJARI_KEY_SECRET);
+
+  const client = new CollectionsClient(keyCredentials);
+
+  const response = await client.queryCollection(process.env.SAJARI_COLLECTION_ID, {
+    variables: {
+      q
+    },
+    tracking: {
+      type: QueryCollectionRequestTrackingType.Click,
+      field: 'title',
+      data: {}
+    }
+  });
+  
+  let products = [];
+
+  if (response.results && response.results.length) {
+    const results = response.results;
+
+    const pids = results.map((result) => result.record.pid);
+
+    db.query("SELECT * FROM products left join categories on categories.id=products.category where pid IN (?)", [pids], function (err, rows, fields) {
+      if (err) {
+        throw err;
+      } else {
+        products = rows;
+        res.render('search', {title: 'Search Results', products, q});
+      }
+    });
+  } else {
+    res.render('search', {title: 'Search Results', products, q});
+  }
 });
 
 module.exports = route;

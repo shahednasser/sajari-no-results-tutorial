@@ -21,8 +21,9 @@ var app = express();
 var reload = require('reload');
 
 var { PipelinesClient, withKeyCredentials, RecordsClient, CollectionsClient } = require('@sajari/sdk-node');
-const { PipelineType } = require('@sajari/sdk-node/build/src/generated/api');
-const db = require('./database/config');
+const { PipelineType, QueryResultTokenClick } = require('@sajari/sdk-node/build/src/generated/api');
+const { QueryCollectionRequestTrackingType } = require('@sajari/sdk-node/build/src/generated/model/queryCollectionRequestTrackingType');
+const db = require('./database/config.js');
 /**
  * For set port or default 7000 posr.
  */
@@ -76,6 +77,11 @@ app.get('/api/search', async function (req, res) {
     const response = await client.queryCollection(process.env.SAJARI_COLLECTION_ID, {
       variables: {
         q
+      },
+      tracking: {
+        type: QueryCollectionRequestTrackingType.Click,
+        field: 'title',
+        data: {}
       }
     });
     
