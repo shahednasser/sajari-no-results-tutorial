@@ -2,15 +2,10 @@ let express = require('express');
 let session = require('express-session');
 let route = express.Router();
 let db = require('../database/config');
-var { PipelinesClient, withKeyCredentials, RecordsClient, CollectionsClient } = require('@sajari/sdk-node');
-const { PipelineType, QueryResultTokenClick } = require('@sajari/sdk-node/build/src/generated/api');
+var { withKeyCredentials, CollectionsClient } = require('@sajari/sdk-node');
 const { QueryCollectionRequestTrackingType } = require('@sajari/sdk-node/build/src/generated/model/queryCollectionRequestTrackingType');
 
 route.get('/', function(req, res) {
-  res.render('home', {title: 'Home'});
-});
-
-route.get('/shop', function(req, res) {
   let products;
   db.query("SELECT * FROM products left join categories on categories.id=products.category", function (err, result, fields) {
     if (err) {
@@ -36,19 +31,8 @@ route.get('/product/:product', function(req, res) {
 
 route.get('/add-to-cart/:product', function(req, res) {
   //Cart through session
-  /*if (!Array.isArray(req.session.product)) {
-    req.session.product = [];
-  }
-  req.session.cookie.expires = false;
-
-  req.session.product.push({
-    id: req.params.product,
-    qnt: 1
-  });*/
-  //res.send('<h1>'+JSON.stringify(req.session.product)+'</h1>');
 
   let product = req.params.product.split("-")[1];
-  //console.log(product)
   //Cart through cookie
   let products = [];
   if(req.cookies.node_express_ecommerce) {
@@ -100,42 +84,18 @@ route.get('/remove-from-cart/:index', function(req, res) {
 route.get('/empty-cart', function(req, res) {
   let products = [];
   res.cookie('node_express_ecommerce', products, {path:'/'});
-  //req.session.destroy();
-  //res.clearCookie('node_express_ecommerce', {path:'/'});
-  //console.log(req.cookies.node_express_ecommerce);
   
   res.redirect('/cart');
 });
 
 route.get('/cart', function(req, res) {
   let products = [];
-  //let session_products = [];
-
-  //Using cookies
-  //console.log(req.cookies.node_express_ecommerce);
+  
   if(req.cookies.node_express_ecommerce) {
     res.render('cart', {title: 'Cart', products: req.cookies.node_express_ecommerce});
   } else {
     res.render('cart', {title: 'Cart', products: products});
   }
-  
-  //Using session
-  /*if(req.session.product) {
-    req.session.product.forEach(function(product) {
-      session_products.push(product.id);
-    });
-    session_products = session_products.join("\', \'");
-    db.query("SELECT * FROM products left join categories on categories.id=products.category where pid in('"+session_products+"')", function (err, result, fields) {
-      if (err) {
-        throw err;
-      } else {
-        //console.log(result);
-        res.render('cart', {title: 'Cart', products: result});
-      }
-    });
-  } else {
-    res.render('cart', {title: 'Cart', products: products});
-  }*/
 });
 
 route.post('/update-cart', function(req, res) {
@@ -174,25 +134,36 @@ route.get('/search', async function (req, res) {
 
   const client = new CollectionsClient(keyCredentials);
 
-  const response = await client.queryCollection(process.env.SAJARI_COLLECTION_ID, {
-    variables: {
-      q
-    },
-    tracking: {
-      type: QueryCollectionRequestTrackingType.Click,
-      field: 'title',
-      data: {}
-    }
-  });
+  let response;
+
+  try {
+    response = await client.queryCollection(process.env.SAJARI_COLLECTION_ID, {
+      variables: {
+        q
+      },
+      tracking: {
+        type: QueryCollectionRequestTrackingType.Click,
+        field: 'title',
+        data: {},
+        queryId: '123'
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.redirect('/');
+  }
+
+  console.log(response);
   
   let products = [];
 
   if (response.results && response.results.length) {
     const results = response.results;
+    console.log(results[0].token);
 
     const pids = results.map((result) => result.record.pid);
 
-    db.query("SELECT * FROM products left join categories on categories.id=products.category where pid IN (?)", [pids], function (err, rows, fields) {
+    db.query("SELECT * FROM products left join categories on categories.id=products.category where pid IN (?) ORDER BY field(pid, ?)", [pids, pids], function (err, rows, fields) {
       if (err) {
         throw err;
       } else {

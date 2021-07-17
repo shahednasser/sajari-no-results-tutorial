@@ -62,36 +62,6 @@ app.use(express.static('public'));
  */
 app.use(require('./routers/pages'));
 
-app.get('/api/search', async function (req, res) {
-  const q = req.query.q,
-        results = [];
-  if (!q || !q.length) {
-    return res.json({success: true, results});
-  }
-
-  const keyCredentials = withKeyCredentials(process.env.SAJARI_KEY_ID, process.env.SAJARI_KEY_SECRET);
-
-  const client = new CollectionsClient(keyCredentials);
-
-  try {
-    const response = await client.queryCollection(process.env.SAJARI_COLLECTION_ID, {
-      variables: {
-        q
-      },
-      tracking: {
-        type: QueryCollectionRequestTrackingType.Click,
-        field: 'title',
-        data: {}
-      }
-    });
-    
-    return res.json({success: true, results: response});
-  } catch (e) {
-    console.error(e);
-    return res.json({success: false, message: 'An error occurred, please try again later.'});
-  }
-});
-
 /**
  * Create server.
  */
@@ -113,7 +83,7 @@ var server = app.listen(app.get('port'), async function() {
   }
   
   //retrieve records to upsert
-  db.query('SELECT * FROM `products`', async function (error, results) {
+  db.query('SELECT `products`.pid, `products`.title, `products`.details, `products`.picture, `products`.price, `name` as `category_name` FROM `products` left join `categories` on `categories`.id=`products`.category', async function (error, results) {
     if (error) {
       console.error(error);
       return;

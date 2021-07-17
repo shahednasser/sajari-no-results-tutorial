@@ -15,8 +15,8 @@
   <% include include/header.ejs %>
 
   <div class="jumbotron text-center">
-    <h1>Search Results</h1>
-    <% if (products.length) { %> <p>Showing <%= products.length %> result(s) for <%= q %></p> <% } %>
+    <h1>Search Results for <%= q %> </h1>
+    <% if (products.length) { %> <p>Showing <%= products.length %> result(s)</p> <% } %>
   </div>
     
   <div class="container">
